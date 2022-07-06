@@ -1,0 +1,17 @@
+[package]
+name = "mimc-halo2"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "mimc_halo2"
+path = "src/lib.rs"
+
+[features]
+dev-graph = ["halo2_proofs/dev-graph", "plotters"]
+
+[dependencies]
+halo2_proofs = "0.2.0"
+pasta_curves = "0.4"
+plotters = { version = "0.3.0", optional = true }

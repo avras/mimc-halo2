@@ -1,3 +1,4 @@
+# LaTeX-specific ignored files
 *.pdf
 *.aux
 *.swp
@@ -15,3 +16,7 @@
 *.fdb_latexmk
 *.gz
 _minted*
+
+# Rust-specific ignored files
+/target
+Cargo.lock
