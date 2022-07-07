@@ -1,1 +1,1 @@
-mod mimc;
+pub mod mimc;

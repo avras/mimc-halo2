@@ -1,4 +1,4 @@
-mod mimc_hash;
-mod mimc_cipher;
+pub mod mimc_hash;
+pub mod mimc_cipher;
 mod round_constants;
-mod primitives;
+pub mod primitives;
