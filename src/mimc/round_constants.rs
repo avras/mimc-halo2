@@ -4,7 +4,7 @@ use pasta_curves::vesta;
 // Number of MiMC5 round constants = 110
 pub(crate) const NUM_ROUNDS: usize = 110;
 
-pub(crate) const MIMC_HASH_PALLAS_ROUND_CONSTANTS: [pallas::Base; NUM_ROUNDS] = 
+pub(crate) const MIMC_PALLAS_ROUND_CONSTANTS: [pallas::Base; NUM_ROUNDS] = 
 [
     pallas::Base::from_raw([
         0x0000_0000_0000_0000,
@@ -668,7 +668,7 @@ pub(crate) const MIMC_HASH_PALLAS_ROUND_CONSTANTS: [pallas::Base; NUM_ROUNDS] =
     ]),
 ];
 
-pub(crate) const MIMC_HASH_VESTA_ROUND_CONSTANTS: [vesta::Base; NUM_ROUNDS] =
+pub(crate) const MIMC_VESTA_ROUND_CONSTANTS: [vesta::Base; NUM_ROUNDS] =
 [
     vesta::Base::from_raw([
         0x0000_0000_0000_0000,

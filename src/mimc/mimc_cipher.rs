@@ -10,7 +10,7 @@ use halo2_proofs::{
 };
 use pasta_curves::{Fp, Fq};
 
-use super::round_constants::{MIMC_HASH_PALLAS_ROUND_CONSTANTS, MIMC_HASH_VESTA_ROUND_CONSTANTS};
+use super::round_constants::{MIMC_PALLAS_ROUND_CONSTANTS, MIMC_VESTA_ROUND_CONSTANTS};
 
 
 #[allow(unused_variables, dead_code)]
@@ -176,7 +176,7 @@ impl MiMC5CipherChip<Fp> for MiMC5CipherPallasChip {
     }
 
     fn get_round_constants() -> Vec<Fp> {
-        MIMC_HASH_PALLAS_ROUND_CONSTANTS.to_vec()
+        MIMC_PALLAS_ROUND_CONSTANTS.to_vec()
     }
 }
 
@@ -196,7 +196,7 @@ impl MiMC5CipherChip<Fq> for MiMC5CipherVestaChip {
     }
 
     fn get_round_constants() -> Vec<Fq> {
-        MIMC_HASH_VESTA_ROUND_CONSTANTS.to_vec()
+        MIMC_VESTA_ROUND_CONSTANTS.to_vec()
     }
 }
 
