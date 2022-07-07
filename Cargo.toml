@@ -27,3 +27,7 @@ harness = false
 [[bench]]
 name = "mimc_hash"
 harness = false
+
+[[bench]]
+name = "mimc_cipher"
+harness = false
