@@ -23,3 +23,7 @@ rand = "0.8"
 [[bench]]
 name = "primitives"
 harness = false
+
+[[bench]]
+name = "mimc_hash"
+harness = false
