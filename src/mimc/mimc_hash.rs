@@ -72,12 +72,11 @@ pub trait MiMC5HashChip<F: FieldExt> {
     fn hash_message(
         &self,
         mut layouter: impl Layouter<F>,
-        initial_value: F,
-    ) -> Result<AssignedCell<F,F>, Error> {
+        message: &AssignedCell<F, F>,
+    ) -> Result<AssignedCell<F, F>, Error> {
         let config = self.get_config();
 
         let round_constant_values = Self::get_round_constants();
-
         layouter.assign_region(
             || "MiMC5 table",
             |mut region| {
@@ -87,12 +86,12 @@ pub trait MiMC5HashChip<F: FieldExt> {
                     || "message to be hashed",
                     config.state,
                     0,
-                    || Value::known(initial_value),
+                    || message.value().copied(),
                 )?;
 
-                let pow_5 = |v: F| { v*v*v*v*v };
+                let pow_5 = |v: Value<F>| { v*v*v*v*v };
 
-                let mut current_state = initial_value;
+                let mut current_state = message.value().copied();
                 let mut state_cell = msg_cell.clone();
                 for i in 1..=round_constant_values.len() {
                     config.s_in_rounds.enable(&mut region, i)?;
@@ -103,14 +102,14 @@ pub trait MiMC5HashChip<F: FieldExt> {
                         || Value::known(round_constant_values[i-1]) // i starts at 1
                     )?;
 
-                    current_state = pow_5(current_state + round_constant_values[i-1]);
+                    current_state = pow_5(current_state + Value::known(round_constant_values[i-1]));
                     
                     state_cell =
                     region.assign_advice(
                         || format!("round {:?} output", i),
                         config.state,
                         i,
-                        || Value::known(current_state)
+                        || current_state
                     )?;
                 }
 
@@ -167,6 +166,12 @@ mod tests {
     use super::*;
     use halo2_proofs::{dev::MockProver, pasta::Fp, plonk::Circuit, circuit::SimpleFloorPlanner};
 
+    #[derive(Debug, Clone)]
+    struct MiMC5HashCircuitConfig {
+        input : Column<Advice>,
+        mimc_config: MiMC5HashConfig,
+    }
+
     #[derive(Default)]
     struct MiMC5HashPallasCircuit {
         pub message: Fp,
@@ -174,7 +179,7 @@ mod tests {
     }
 
     impl Circuit<Fp> for MiMC5HashPallasCircuit {
-        type Config = MiMC5HashConfig;
+        type Config = MiMC5HashCircuitConfig;
         type FloorPlanner = SimpleFloorPlanner;
         
         fn without_witnesses(&self) -> Self {
@@ -182,9 +187,14 @@ mod tests {
         }
 
         fn configure(meta: &mut ConstraintSystem<Fp>) -> Self::Config {
+            let circuit_input = meta.advice_column();
+            meta.enable_equality(circuit_input);
             let state = meta.advice_column();
             let round_constants = meta.fixed_column();
-            MiMC5HashPallasChip::configure(meta, state, round_constants)
+            Self::Config {
+                input: circuit_input,
+                mimc_config: MiMC5HashPallasChip::configure(meta, state, round_constants)
+            }
         }
 
         fn synthesize(
@@ -192,11 +202,23 @@ mod tests {
             config: Self::Config,
             mut layouter: impl Layouter<Fp>,
         ) -> Result<(), Error> {
-            let chip = MiMC5HashPallasChip::construct(config.clone());
+            let chip = MiMC5HashPallasChip::construct(config.mimc_config);
+
+            let message = layouter.assign_region(
+                || "load message",
+                |mut region| {
+                    region.assign_advice(
+                        || "load input message",
+                        config.input,
+                        0,
+                        || Value::known(self.message)
+                    )
+                }  
+            )?;
 
             let msg_hash = chip.hash_message(
                 layouter.namespace(|| "entire table"),
-                self.message,
+                &message,
             )?;
 
             layouter.assign_region(
@@ -204,7 +226,7 @@ mod tests {
                 |mut region| {
                     let expected_output = region.assign_advice(
                         || "load output", 
-                        config.state,
+                        config.input,
                         0,
                         || Value::known(self.message_hash),
                     )?;
@@ -242,7 +264,7 @@ mod tests {
     }
 
     impl Circuit<Fq> for MiMC5HashVestaCircuit {
-        type Config = MiMC5HashConfig;
+        type Config = MiMC5HashCircuitConfig;
         type FloorPlanner = SimpleFloorPlanner;
         
         fn without_witnesses(&self) -> Self {
@@ -250,9 +272,14 @@ mod tests {
         }
 
         fn configure(meta: &mut ConstraintSystem<Fq>) -> Self::Config {
+            let circuit_input = meta.advice_column();
+            meta.enable_equality(circuit_input);
             let state = meta.advice_column();
             let round_constants = meta.fixed_column();
-            MiMC5HashVestaChip::configure(meta, state, round_constants)
+            Self::Config {
+                input: circuit_input,
+                mimc_config: MiMC5HashVestaChip::configure(meta, state, round_constants)
+            }
         }
 
         fn synthesize(
@@ -260,11 +287,23 @@ mod tests {
             config: Self::Config,
             mut layouter: impl Layouter<Fq>,
         ) -> Result<(), Error> {
-            let chip = MiMC5HashVestaChip::construct(config.clone());
+            let chip = MiMC5HashVestaChip::construct(config.mimc_config);
+
+            let message = layouter.assign_region(
+                || "load message",
+                |mut region| {
+                    region.assign_advice(
+                        || "load input message",
+                        config.input,
+                        0,
+                        || Value::known(self.message)
+                    )
+                }  
+            )?;
 
             let msg_hash = chip.hash_message(
                 layouter.namespace(|| "entire table"),
-                self.message,
+                &message,
             )?;
 
             layouter.assign_region(
@@ -272,7 +311,7 @@ mod tests {
                 |mut region| {
                     let expected_output = region.assign_advice(
                         || "load output", 
-                        config.state,
+                        config.input,
                         0,
                         || Value::known(self.message_hash),
                     )?;
@@ -282,6 +321,7 @@ mod tests {
 
             Ok(())
         }
+
     }
 
      

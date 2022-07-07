@@ -90,8 +90,8 @@ pub trait MiMC5CipherChip<F: FieldExt> {
     fn encrypt_message(
         &self,
         mut layouter: impl Layouter<F>,
-        message: F,
-        key: F,
+        message: &AssignedCell<F, F>,
+        key: &AssignedCell<F, F>,
     ) -> Result<AssignedCell<F,F>, Error> {
         let config = self.get_config();
 
@@ -105,20 +105,20 @@ pub trait MiMC5CipherChip<F: FieldExt> {
                     || "message to be hashed",
                     config.state,
                     0,
-                    || Value::known(message),
+                    || message.value().copied(),
                 )?;
 
                 region.assign_advice(
                     || format!("key in row 0"),
                     config.key_column,
                     0,
-                    || Value::known(key)
+                    || key.value().copied(),
                 )?;
 
 
-                let pow_5 = |v: F| { v*v*v*v*v };
+                let pow_5 = |v: Value<F>| { v*v*v*v*v };
 
-                let mut current_state = message;
+                let mut current_state = message.value().copied();
 
                 for i in 1..=round_constant_values.len() {
                     config.s_in_rounds.enable(&mut region, i)?;
@@ -133,26 +133,26 @@ pub trait MiMC5CipherChip<F: FieldExt> {
                         || format!("key in row {:?} ", i),
                         config.key_column,
                         i,
-                        || Value::known(key)
+                        || key.value().copied()
                     )?;
 
-                    current_state = pow_5(current_state + key + round_constant_values[i-1]);
+                    current_state = pow_5( current_state + key.value().copied() + Value::known(round_constant_values[i-1]));
                     region.assign_advice(
                         || format!("round {:?} output", i),
                         config.state,
                         i,
-                        || Value::known(current_state)
+                        || current_state
                     )?;
                 }
 
-                current_state = current_state + key;
+                current_state = current_state + key.value().copied();
 
                 let ciphertext =
                 region.assign_advice(
                     || "final state",
                     config.state,
                     round_constant_values.len()+1,
-                    || Value::known(current_state)
+                    || current_state
                 )?;
                 Ok(ciphertext)
             }
@@ -208,6 +208,12 @@ mod tests {
     use super::*;
     use halo2_proofs::{dev::MockProver, pasta::Fp, plonk::Circuit, circuit::SimpleFloorPlanner};
 
+    #[derive(Debug, Clone)]
+    struct MiMC5CipherCircuitConfig {
+        input : Column<Advice>,
+        mimc_config: MiMC5CipherConfig,
+    }
+
     #[derive(Default)]
     struct MiMC5CipherPallasCircuit {
         pub message: Fp,
@@ -216,7 +222,7 @@ mod tests {
     }
 
     impl Circuit<Fp> for MiMC5CipherPallasCircuit {
-        type Config = MiMC5CipherConfig;
+        type Config = MiMC5CipherCircuitConfig;
         type FloorPlanner = SimpleFloorPlanner;
         
         fn without_witnesses(&self) -> Self {
@@ -224,10 +230,15 @@ mod tests {
         }
 
         fn configure(meta: &mut ConstraintSystem<Fp>) -> Self::Config {
+            let circuit_input = meta.advice_column();
+            meta.enable_equality(circuit_input);
             let state = meta.advice_column();
             let key_column = meta.advice_column();
             let round_constants = meta.fixed_column();
-            MiMC5CipherPallasChip::configure(meta, state, key_column, round_constants)
+            Self::Config {
+                input: circuit_input,
+                mimc_config: MiMC5CipherPallasChip::configure(meta, state, key_column, round_constants)
+            }
         }
 
         fn synthesize(
@@ -235,12 +246,36 @@ mod tests {
             config: Self::Config,
             mut layouter: impl Layouter<Fp>,
         ) -> Result<(), Error> {
-            let chip = MiMC5CipherPallasChip::construct(config.clone());
+            let chip = MiMC5CipherPallasChip::construct(config.mimc_config);
+
+            let message = layouter.assign_region(
+                || "load message",
+                |mut region| {
+                    region.assign_advice(
+                        || "load input message",
+                        config.input,
+                        0,
+                        || Value::known(self.message)
+                    )
+                }  
+            )?;
+
+            let key = layouter.assign_region(
+                || "load key",
+                |mut region| {
+                    region.assign_advice(
+                        || "load encryption key",
+                        config.input,
+                        0,
+                        || Value::known(self.key)
+                    )
+                }  
+            )?;
 
             let ciphertext = chip.encrypt_message(
                 layouter.namespace(|| "entire table"),
-                self.message,
-                self.key,
+                &message,
+                &key,
             )?;
 
             layouter.assign_region(
@@ -248,7 +283,7 @@ mod tests {
                 |mut region| {
                     let expected_output = region.assign_advice(
                         || "load output", 
-                        config.state,
+                        config.input,
                         0,
                         || Value::known(self.ciphertext),
                     )?;
@@ -266,7 +301,7 @@ mod tests {
         let k = 7;
 
         let msg = Fp::from(0);
-        let key = Fp::from(0);
+        let key = Fp::from(1);
         let mut output = msg;
         mimc5_encrypt_pallas(&mut output, key);
 
@@ -289,7 +324,7 @@ mod tests {
     }
 
     impl Circuit<Fq> for MiMC5CipherVestaCircuit {
-        type Config = MiMC5CipherConfig;
+        type Config = MiMC5CipherCircuitConfig;
         type FloorPlanner = SimpleFloorPlanner;
         
         fn without_witnesses(&self) -> Self {
@@ -297,10 +332,15 @@ mod tests {
         }
 
         fn configure(meta: &mut ConstraintSystem<Fq>) -> Self::Config {
+            let circuit_input = meta.advice_column();
+            meta.enable_equality(circuit_input);
             let state = meta.advice_column();
-            let round_constants = meta.fixed_column();
             let key_column = meta.advice_column();
-            MiMC5CipherVestaChip::configure(meta, state, key_column, round_constants)
+            let round_constants = meta.fixed_column();
+            Self::Config {
+                input: circuit_input,
+                mimc_config: MiMC5CipherVestaChip::configure(meta, state, key_column, round_constants)
+            }
         }
 
         fn synthesize(
@@ -308,12 +348,36 @@ mod tests {
             config: Self::Config,
             mut layouter: impl Layouter<Fq>,
         ) -> Result<(), Error> {
-            let chip = MiMC5CipherVestaChip::construct(config.clone());
+            let chip = MiMC5CipherVestaChip::construct(config.mimc_config);
+
+            let message = layouter.assign_region(
+                || "load message",
+                |mut region| {
+                    region.assign_advice(
+                        || "load input message",
+                        config.input,
+                        0,
+                        || Value::known(self.message)
+                    )
+                }  
+            )?;
+
+            let key = layouter.assign_region(
+                || "load key",
+                |mut region| {
+                    region.assign_advice(
+                        || "load encryption key",
+                        config.input,
+                        0,
+                        || Value::known(self.key)
+                    )
+                }  
+            )?;
 
             let ciphertext = chip.encrypt_message(
                 layouter.namespace(|| "entire table"),
-                self.message,
-                self.key,
+                &message,
+                &key,
             )?;
 
             layouter.assign_region(
@@ -321,7 +385,7 @@ mod tests {
                 |mut region| {
                     let expected_output = region.assign_advice(
                         || "load output", 
-                        config.state,
+                        config.input,
                         0,
                         || Value::known(self.ciphertext),
                     )?;
