@@ -203,11 +203,10 @@ impl MiMC5CipherChip<Fq> for MiMC5CipherVestaChip {
 
 #[cfg(test)]
 mod tests {
-    use crate::mimc::primitives::mimc5_encrypt;
+    use crate::mimc::primitives::{mimc5_encrypt_pallas, mimc5_encrypt_vesta};
 
     use super::*;
     use halo2_proofs::{dev::MockProver, pasta::Fp, plonk::Circuit, circuit::SimpleFloorPlanner};
-    use crate::mimc::round_constants::{NUM_ROUNDS, MIMC_HASH_PALLAS_ROUND_CONSTANTS, MIMC_HASH_VESTA_ROUND_CONSTANTS};
 
     #[derive(Default)]
     struct MiMC5CipherPallasCircuit {
@@ -269,7 +268,7 @@ mod tests {
         let msg = Fp::from(0);
         let key = Fp::from(0);
         let mut output = msg;
-        mimc5_encrypt::<Fp, { NUM_ROUNDS }>(&mut output, key, MIMC_HASH_PALLAS_ROUND_CONSTANTS);
+        mimc5_encrypt_pallas(&mut output, key);
 
         let circuit = MiMC5CipherPallasCircuit {
             message: msg,
@@ -342,7 +341,7 @@ mod tests {
         let msg = Fq::from(0);
         let key = Fq::from(0);
         let mut output = msg;
-        mimc5_encrypt::<Fq, { NUM_ROUNDS }>(&mut output, key, MIMC_HASH_VESTA_ROUND_CONSTANTS);
+        mimc5_encrypt_vesta(&mut output, key);
 
         let circuit = MiMC5CipherVestaCircuit {
             message: msg,
