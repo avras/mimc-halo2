@@ -20,3 +20,4 @@ _minted*
 # Rust-specific ignored files
 /target
 Cargo.lock
+*.png
