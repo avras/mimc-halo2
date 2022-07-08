@@ -270,7 +270,7 @@ The MiMC cipher implementation has the following columns (illustrated in Table \
     \end{align*}
   \item Two selectors: \texttt{s\textunderscore in\textunderscore rounds}, \texttt{s\textunderscore post\textunderscore rounds}
     \begin{align*}
-      & \texttt{s\textunderscore in\textunderscore rounds} = 1  \iff 1 \le i\le 110\\
+      & \texttt{s\textunderscore in\textunderscore rounds} = 1  \iff 1 \le i\le 110,\\
       & \texttt{s\textunderscore post\textunderscore rounds} = 1  \iff i=111
     \end{align*}
 \end{enumerate}
@@ -330,29 +330,117 @@ The MiMC hash implementation has the following columns (illustrated in Table \re
   \caption{\texttt{MiMC} hash layout}
   \label{tab:MiMCHashLayout}
 \end{table}
+
 \subsection{\texttt{MiMC-Feistel} in Halo2}%
 \label{subsec:mimc_feistel_in_halo2}
-Not implemented yet.
-%Columns
-%\begin{itemize}
-%  \item One instance column to hold the inputs $x_L, x_R$, key $k$, and output $E_k(x)$ at offsets 0, 1, 2, and 3
-%  \item One fixed column to hold the round constants; the $i$th row holds $c_i$
-%  \item Two advice columns whose $i$th rows hold $y_i$ and $z_i$ where
+\subsubsection{\texttt{MiMC-Feistel} cipher}
+The MiMC Feistel cipher implementation has the following columns (illustrated in Table \ref{tab:MiMCFeistelCipherLayout}):
+\begin{enumerate}
+  \item One fixed column to hold the round constants; the $i$th row holds $c_i$
+  \item One advice column to hold the key $k$ which is used in all the rounds
+  \item Two advice columns to hold the left and right cipher states $x_{L,i}, x_{R,i}$ after the $i$th round. The first row of these columns holds the two parts $x_L, x_R$ of the message to be encrypted.
+    \begin{align*}
+      x_{L,i} &= 
+      \begin{cases}
+        x_L & \text{ if } i = 0,\\
+        x_{R, i-1} + \left( x_{L,i-1}+k+c_{i-1}\right)^5  & \text{ if } 1 \le i \le  219,\\
+        x_{L,i-1}  & \text{ if } i=220.
+      \end{cases}\\
+      x_{R,i} &= 
+      \begin{cases}
+        x_R & \text{ if } i = 0,\\
+         x_{L,i-1} & \text{ if } 1 \le i \le  219,\\
+         x_{R,i-1} + \left( x_{L,i-1}+k\right)^5  & \text{ if } i=220.
+      \end{cases}
+    \end{align*}
+  \item Two selectors: \texttt{s\textunderscore inner\textunderscore rounds}, \texttt{s\textunderscore last\textunderscore round}
+
+    \begin{align*}
+      & \texttt{s\textunderscore inner\textunderscore rounds} = 1  \iff 1 \le i\le 219,\\
+      & \texttt{s\textunderscore last\textunderscore round} = 1  \iff 1 = 220.
+    \end{align*}
+\end{enumerate}
+
+\begin{table}[t]
+  \centering
+  \resizebox{\textwidth}{!}{%
+  \begin{tabular}{l|l|c|c|c|c}
+       &  & & \texttt{round} &   \texttt{s\textunderscore inner}            &  \texttt{s\textunderscore last}     \\
+    \texttt{state\textunderscore left} & \texttt{state\textunderscore right} & \texttt{key} &\texttt{constants} &  \texttt{\textunderscore rounds} & \texttt{\textunderscore round}\\ \hline
+    $x_{L,0} = x_L$ & $x_{R,0} = x_R$ & $k$ & $c_0$ & $0$ & $0$ \\
+    $x_{L,1} = x_{R,0}+(x_{L,0}+k+c_0)^5$ & $x_{R,1} = x_{L,0}$ & $k$ & $c_1$ & $1$ & $0$ \\
+    $x_{L,2} = x_{R,1}+(x_{L,1}+k+c_1)^5$ & $x_{R,2} = x_{L,1}$ & $k$ & $c_2$ & $1$ & $0$ \\
+    $x_{L,3} = x_{R,2}+(x_{L,2}+k+c_2)^5$ & $x_{R,3} = x_{L,2}$ & $k$ & $c_3$ & $1$ & $0$ \\
+    $\vdots$ & $\vdots$ & $\vdots$ & $\vdots$ & $\vdots$ & $\vdots$ \\
+    $x_{L,219} = x_{R,218}+(x_{L,218}+k+c_{218})^5$ & $x_{R,219} = x_{L,218}$ & $k$ & $c_{219}=0$ & $1$ & $0$ \\
+    $x_{L,220} = x_{L,219}$ & $x_{R,220} = x_{R,219} + (x_{L,219}+k)^5$ & $k$ &      & $0$ & $1$ \\
+  \hline
+  \end{tabular}
+  }
+  \caption{\texttt{MiMC-Feistel} cipher layout}
+  \label{tab:MiMCFeistelCipherLayout}
+\end{table}
+
+\subsubsection{\texttt{MiMC-Feistel} hash}
+The MiMC Feistel hash implementation has the following columns (illustrated in Table \ref{tab:MiMCFeistelHashLayout}):
+\begin{enumerate}
+  \item One fixed column to hold the round constants; the $i$th row holds $c_i$
+  \item Two advice columns to hold the left and right hash states $x_{L,i}, x_{R,i}$ after the $i$th round. The first row of these columns holds the two parts $x_L, x_R$ of the message to be hashed.
 %    \begin{align*}
-%      y_i \| z_i = 
+%      x_{L,i} &= 
 %      \begin{cases}
-%        x_L \| x_R & \text{ if } i = 0,\\
-%        \left( z_{i-1} + \left( y_{i-1}+k+c_{i-1}\right)^5  \right) \bigg\| y_{i-1} & \text{ if } 1 \le i \le  219,\\
-%        y_{i-1} \bigg\| \left( z_{i-1} + \left( y_{i-1}+k\right)^5  \right) & \text{ if } i=220.
+%        x_L & \text{ if } i = 0,\\
+%        x_{R, i-1} + \left( x_{L,i-1}+k+c_{i-1}\right)^5  & \text{ if } 1 \le i \le  219,\\
+%        x_{L,i-1}  & \text{ if } i=220.
+%      \end{cases}\\
+%      x_{R,i} &= 
+%      \begin{cases}
+%        x_R & \text{ if } i = 0,\\
+%         x_{L,i-1} & \text{ if } 1 \le i \le  219,\\
+%         x_{R,i-1} + \left( x_{L,i-1}+k\right)^5  & \text{ if } i=220.
 %      \end{cases}
 %    \end{align*}
-%  \item Three selectors: $s_1,s_2,s_3$
-%    \begin{align*}
-%      s_1 = 1 & \iff i=0\\
-%      s_2 = 1 & \iff 1 \le i\le 219\\
-%      s_3 = 1 & \iff i=220
-%    \end{align*}
-%\end{itemize}
+    \begin{align*}
+      x_{L,i} &= 
+      \begin{cases}
+        x_L & \text{ if } i = 0,\\
+        x_{R, i-1} + \left( x_{L,i-1}+c_{i-1}\right)^5  & \text{ if } 1 \le i \le  219,\\
+        x_{L,i-1}  & \text{ if } i=220.
+      \end{cases}\\
+      x_{R,i} &= 
+      \begin{cases}
+        x_R & \text{ if } i = 0,\\
+         x_{L,i-1} & \text{ if } 1 \le i \le  219,\\
+         x_{R,i-1} + \left( x_{L,i-1}\right)^5  & \text{ if } i=220.
+      \end{cases}
+    \end{align*}
+  \item Two selectors: \texttt{s\textunderscore inner\textunderscore rounds}, \texttt{s\textunderscore last\textunderscore round}
+
+    \begin{align*}
+      & \texttt{s\textunderscore inner\textunderscore rounds} = 1  \iff 1 \le i\le 219,\\
+      & \texttt{s\textunderscore last\textunderscore round} = 1  \iff 1 = 220.
+    \end{align*}
+\end{enumerate}
+
+\begin{table}[t]
+  \centering
+  \resizebox{\textwidth}{!}{%
+  \begin{tabular}{l|l|c|c|c}
+       &    & \texttt{round} &   \texttt{s\textunderscore inner}            &  \texttt{s\textunderscore last}     \\
+    \texttt{state\textunderscore left} & \texttt{state\textunderscore right} &\texttt{constants} &  \texttt{\textunderscore rounds} & \texttt{\textunderscore round}\\ \hline
+    $x_{L,0} = x_L$ & $x_{R,0} = x_R$ & $c_0$ & $0$ & $0$ \\
+    $x_{L,1} = x_{R,0}+(x_{L,0}+c_0)^5$ & $x_{R,1} = x_{L,0}$ & $c_1$ & $1$ & $0$ \\
+    $x_{L,2} = x_{R,1}+(x_{L,1}+c_1)^5$ & $x_{R,2} = x_{L,1}$ & $c_2$ & $1$ & $0$ \\
+    $x_{L,3} = x_{R,2}+(x_{L,2}+c_2)^5$ & $x_{R,3} = x_{L,2}$ & $c_3$ & $1$ & $0$ \\
+    $\vdots$ & $\vdots$ & $\vdots$  & $\vdots$ & $\vdots$ \\
+    $x_{L,219} = x_{R,218}+(x_{L,218}+c_{218})^5$ & $x_{R,219} = x_{L,218}$ & $c_{219}=0$ & $1$ & $0$ \\
+    $x_{L,220} = x_{L,219}$ & $x_{R,220} = x_{R,219} + (x_{L,219})^5$ &      & $0$ & $1$ \\
+  \hline
+  \end{tabular}
+  }
+  \caption{\texttt{MiMC-Feistel} hash layout}
+  \label{tab:MiMCFeistelHashLayout}
+\end{table}
 
 
 
