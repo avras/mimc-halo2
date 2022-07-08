@@ -31,3 +31,11 @@ harness = false
 [[bench]]
 name = "mimc_cipher"
 harness = false
+
+[[bench]]
+name = "mimc_feistel_hash"
+harness = false
+
+[[bench]]
+name = "mimc_feistel_cipher"
+harness = false
