@@ -103,7 +103,6 @@ pub trait MiMC5FeistelHashChip<F: FieldExt> {
             || "MiMC5 Feistel table",
             |mut region| {
 
-                let msg_cell_left =
                 region.assign_advice(
                     || "left part of message to be hashed",
                     config.state_left,
@@ -123,7 +122,7 @@ pub trait MiMC5FeistelHashChip<F: FieldExt> {
                 let mut current_state_left = message_left.value().copied();
                 let mut current_state_right = message_right.value().copied();
 
-                let mut state_cell_left = msg_cell_left.clone();
+                let state_cell_left;
                 let state_cell_right;
 
                 for i in 1..round_constant_values.len() { // i goes from 1 to 219
@@ -139,7 +138,6 @@ pub trait MiMC5FeistelHashChip<F: FieldExt> {
                     current_state_right = current_state_left;
                     current_state_left = temp;
                     
-                    state_cell_left =
                     region.assign_advice(
                         || format!("round {:?} output on the left", i),
                         config.state_left,
@@ -155,7 +153,15 @@ pub trait MiMC5FeistelHashChip<F: FieldExt> {
                     )?;
                 }
 
+                config.s_last_round.enable(&mut region, round_constant_values.len())?;
                 current_state_right = current_state_right + pow_5(current_state_left);
+                state_cell_left =
+                region.assign_advice(
+                    || "last round output on the left",
+                    config.state_left,
+                    round_constant_values.len(),
+                    || current_state_left
+                )?;
                 state_cell_right =
                 region.assign_advice(
                     || "last round output on the right",
