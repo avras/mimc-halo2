@@ -12,8 +12,8 @@
 
 
 \title{MiMC in Halo2}
-\date{}
-\author{}
+\date{July 8, 2022}
+\author{Saravanan Vijayakumaran}
 
 \begin{document}
 \maketitle
@@ -177,7 +177,7 @@ A \texttt{MiMC-Feistel} implementation over $\mathbb{F}_p$ is specified as below
 
 \section{MiMC in \texttt{circom}}%
 \label{sec:mimc_in_circom}
-The \texttt{circom} library \cite{circomlib} has implementations of both \texttt{MiMC} and \texttt{MiMC-Feistel} ciphers. The \texttt{MiMC} implementation in \texttt{circom} uses $s=7$ while the \texttt{MiMC-Feistel} implementation uses $s=5$.\footnote{
+The \texttt{circom} library \cite{circomlib} has circuits for both \texttt{MiMC} and \texttt{MiMC-Feistel} ciphers. The \texttt{MiMC} circuit in \texttt{circom} uses $s=7$ while the \texttt{MiMC-Feistel} circuit uses $s=5$.\footnote{
 It is not clear why $s=7$ was chosen for \texttt{MiMC} in \texttt{circom}. The field where the MiMC calculations will occur has order equal to the group order of the alt\textunderscore bn128 (BN254) curve. This order is given by the prime
 \begin{align*}
 {\scriptstyle
@@ -185,9 +185,9 @@ It is not clear why $s=7$ was chosen for \texttt{MiMC} in \texttt{circom}. The f
 }
 \end{align*}
 While $\gcd(p-1, 3) = 3$, we have $\gcd(p-1, 5)=1$. So $s=5$ is a valid choice. In a document describing EdDSA on the Baby Jubjub curve \cite{eddsa_babyjubjub_mimc7}, the authors mention that $s=7$ is the optimal choice since $\gcd(l-1, 3)=3$ where $l$ is group order of the Baby Jubjub curve. It turns out that $\gcd(l-1, 5)=5$ and $\gcd(l-1, 7)=1$. But the order of elliptic curve group should not matter.
-}
+} The library also has a \texttt{MiMC-Sponge} circuit which is obtained by chaining a configurable number of \texttt{MiMC-Feistel} circuits.
 
-The \texttt{MiMC} implementation has 91 rounds where the round constants are elements in $\mathbb{F}_p$ where $p$ is the order of the alt\textunderscore bn128 curve. Figure \ref{fig:MiMCconstantscircom} shows pseudocode of the round constant calculation.\footnote{See \url{https://github.com/iden3/circomlibjs/blob/main/src/mimc7.js} for a Javascript implementation of the round constant calculation.} It hashes the string ``mimc'' iteratively using the Keccak256 hash function and converts the resulting value into a field element in $\mathbb{F}_p$. By convention, the first round constant is set to zero.
+The \texttt{MiMC} circuit has 91 rounds where the round constants are elements in $\mathbb{F}_p$ where $p$ is the order of the alt\textunderscore bn128 curve. Figure \ref{fig:MiMCconstantscircom} shows pseudocode of the round constant calculation.\footnote{See \url{https://github.com/iden3/circomlibjs/blob/main/src/mimc7.js} for a Javascript implementation of the round constant calculation.} It hashes the string ``mimc'' iteratively using the Keccak256 hash function and converts the resulting value into a field element in $\mathbb{F}_p$. By convention, the first round constant is set to zero.
 \begin{figure}[t]
 \begin{minted}[fontsize=\scriptsize]{python}
 prime = 21888242871839275222246405745257275088548364400416034343698204186575808495617
@@ -207,7 +207,7 @@ for i in range(1, num_rounds):
 \label{fig:MiMCconstantscircom}
 \end{figure}
 
-The \texttt{MiMC-Feistel} implementation in \texttt{circom} has 220 rounds. The pseudocode for the round constant calculation is shown in Figure \ref{fig:MiMCFeistelconstantscircom}. The number of rounds is calculated assuming $s=5$ and the seed string is chosen to be ``mimcsponge''. By convention, the first and last round constants are set to zero.
+The \texttt{MiMC-Feistel} circuit in \texttt{circom} has 220 rounds. The pseudocode for the round constant calculation is shown in Figure \ref{fig:MiMCFeistelconstantscircom}. The number of rounds is calculated assuming $s=5$ and the seed string is chosen to be ``mimcsponge''. By convention, the first and last round constants are set to zero.
 
 \begin{figure}[t]
 \begin{minted}[fontsize=\scriptsize]{python}
@@ -255,7 +255,7 @@ Sage codes for generating the Pallas field round constants for \texttt{MiMC} and
 The \texttt{MiMC} cipher and hash implementations are available at \url{https://github.com/avras/mimc-halo2/tree/main/src/mimc}. 
 
 \subsubsection{\texttt{MiMC} cipher}
-The MiMC cipher implementation has the following columns (illustrated in Table \ref{tab:MiMCCipherLayout}):
+The MiMC cipher chip has the following columns (illustrated in Table \ref{tab:MiMCCipherLayout}):
 \begin{enumerate}
   \item One fixed column to hold the round constants; the $i$th row holds $c_i$
   \item One advice column to hold the key $k$ which is used in all the rounds
@@ -296,7 +296,7 @@ The MiMC cipher implementation has the following columns (illustrated in Table \
   \label{tab:MiMCCipherLayout}
 \end{table}
 \subsubsection{\texttt{MiMC} hash}
-The MiMC hash implementation has the following columns (illustrated in Table \ref{tab:MiMCHashLayout}):
+The MiMC hash chip has the following columns (illustrated in Table \ref{tab:MiMCHashLayout}):
 \begin{enumerate}
   \item One fixed column to hold the round constants; the $i$th row holds $c_i$
   \item One advice column to hold the cipher state $x_i$ after the $i$th round. The first row of this column holds the message $x$ to be hashed.
@@ -333,8 +333,9 @@ The MiMC hash implementation has the following columns (illustrated in Table \re
 
 \subsection{\texttt{MiMC-Feistel} in Halo2}%
 \label{subsec:mimc_feistel_in_halo2}
+The \texttt{MiMC-Feistel} cipher and hash implementations are available at \url{https://github.com/avras/mimc-halo2/tree/main/src/mimc_feistel}.
 \subsubsection{\texttt{MiMC-Feistel} cipher}
-The MiMC Feistel cipher implementation has the following columns (illustrated in Table \ref{tab:MiMCFeistelCipherLayout}):
+The MiMC Feistel cipher chip has the following columns (illustrated in Table \ref{tab:MiMCFeistelCipherLayout}):
 \begin{enumerate}
   \item One fixed column to hold the round constants; the $i$th row holds $c_i$
   \item One advice column to hold the key $k$ which is used in all the rounds
@@ -382,7 +383,7 @@ The MiMC Feistel cipher implementation has the following columns (illustrated in
 \end{table}
 
 \subsubsection{\texttt{MiMC-Feistel} hash}
-The MiMC Feistel hash implementation has the following columns (illustrated in Table \ref{tab:MiMCFeistelHashLayout}):
+The MiMC Feistel hash chip has the following columns (illustrated in Table \ref{tab:MiMCFeistelHashLayout}):
 \begin{enumerate}
   \item One fixed column to hold the round constants; the $i$th row holds $c_i$
   \item Two advice columns to hold the left and right hash states $x_{L,i}, x_{R,i}$ after the $i$th round. The first row of these columns holds the two parts $x_L, x_R$ of the message to be hashed.
