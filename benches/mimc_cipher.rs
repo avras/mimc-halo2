@@ -263,7 +263,7 @@ fn bench_mimc_vesta_cipher(c: &mut Criterion) {
         ciphertext: vesta_ciphertext,
     };
 
-    c.bench_function("mimc_hash_vesta_prover", |b| {
+    c.bench_function("mimc_cipher_vesta_prover", |b| {
         b.iter(|| {
             // Create a proof
             let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
@@ -278,7 +278,7 @@ fn bench_mimc_vesta_cipher(c: &mut Criterion) {
         .expect("proof generation should not fail");
     let proof = transcript.finalize();
 
-    c.bench_function("mimc_hash_vesta_verifier", |b| {
+    c.bench_function("mimc_cipher_vesta_verifier", |b| {
         b.iter(|| {
             let strategy = SingleVerifier::new(&params);
             let mut transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&proof[..]);
